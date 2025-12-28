@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { setPosts } from "state";
 import PostWidget from "./PostWidget";
+import { API_ENDPOINTS } from "config/api";
+import { motion } from "framer-motion";
 
 const PostsWidget = ({ userId, isProfile = false }) => {
   const dispatch = useDispatch();
@@ -9,7 +11,7 @@ const PostsWidget = ({ userId, isProfile = false }) => {
   const token = useSelector((state) => state.token);
 
   const getPosts = async () => {
-    const response = await fetch(`http://localhost:3001/posts`, {
+    const response = await fetch(API_ENDPOINTS.POSTS, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -18,7 +20,7 @@ const PostsWidget = ({ userId, isProfile = false }) => {
   };
 
   const getUserPosts = async () => {
-    const response = await fetch(`http://localhost:3001/posts/${userId}/posts`, {
+    const response = await fetch(API_ENDPOINTS.USER_POSTS(userId), {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -32,10 +34,10 @@ const PostsWidget = ({ userId, isProfile = false }) => {
     } else {
       getPosts();
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {posts.map(
         ({
           _id,
@@ -48,19 +50,25 @@ const PostsWidget = ({ userId, isProfile = false }) => {
           userPicturePath,
           likes,
           comments,
-        }) => (
-          <PostWidget
+        }, index) => (
+          <motion.div
             key={_id}
-            postId={_id}
-            postUserId={userId}
-            name={`${firstName} ${lastName}`}
-            description={description}
-            location={location}
-            picturePath={picturePath}
-            userPicturePath={userPicturePath}
-            likes={likes}
-            comments={comments}
-          />
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <PostWidget
+              postId={_id}
+              postUserId={userId}
+              name={`${firstName} ${lastName}`}
+              description={description}
+              location={location}
+              picturePath={picturePath}
+              userPicturePath={userPicturePath}
+              likes={likes}
+              comments={comments}
+            />
+          </motion.div>
         )
       )}
     </div>
