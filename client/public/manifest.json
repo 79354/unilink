@@ -1,0 +1,25 @@
+{
+  "short_name": "UniLink",
+  "name": "UniLink - Student Networking Platform",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "unilink.jpg",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "unilink.jpg",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#00D5FA",
+  "background_color": "#ffffff"
+}
