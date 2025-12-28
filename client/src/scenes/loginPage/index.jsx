@@ -1,33 +1,51 @@
 import Form from "./Form";
 import { useSelector } from "react-redux";
+import { motion } from "framer-motion";
 
 const LoginPage = () => {
   const mode = useSelector((state) => state.mode);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-primary-100 dark:from-grey-900 dark:via-grey-800 dark:to-grey-900">
+    <div className="min-h-screen bg-grey-50 dark:bg-grey-900 font-sans">
       {/* Header */}
-      <div className="w-full bg-white/80 dark:bg-grey-800/80 backdrop-blur-lg border-b border-grey-100 dark:border-grey-700 px-[6%] py-4 text-center">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent">
-          Uni-Link
-        </h1>
-      </div>
+      <nav className="w-full bg-white dark:bg-grey-800 px-[10%] py-4 shadow-sm border-b border-grey-200 dark:border-grey-700">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <h1 className="text-2xl font-bold text-primary-500">
+            Uni<span className="bg-primary-500 text-white px-1.5 py-0.5 rounded-sm ml-0.5">Link</span>
+          </h1>
+        </div>
+      </nav>
 
-      {/* Form Container */}
-      <div className="flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-2xl">
-          <div className="bg-white dark:bg-grey-800 rounded-2xl shadow-2xl p-8 md:p-12 border border-grey-100 dark:border-grey-700 animate-scale-in">
-            <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-grey-800 dark:text-grey-100 mb-2">
-                Welcome to UniLink
-              </h2>
-              <p className="text-grey-500 dark:text-grey-400">
-                Connecting Minds, Building Futures
-              </p>
-            </div>
+      {/* Hero Section */}
+      <div className="max-w-7xl mx-auto px-[10%] py-12 flex flex-col lg:flex-row items-center justify-between gap-12">
+        <motion.div 
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full lg:w-1/2"
+        >
+          <h2 className="text-4xl md:text-5xl font-light text-primary-600 dark:text-primary-400 mb-8 leading-tight">
+            Welcome to your <br />
+            <span className="font-bold">professional university community</span>
+          </h2>
+          
+          <div className="bg-white dark:bg-grey-800 p-8 rounded-xl linkedin-card w-full max-w-lg">
             <Form />
           </div>
-        </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="hidden lg:block w-1/2"
+        >
+          <img 
+            src="https://static.licdn.com/aero-v1/sc/h/d58zfe6h3yc07zccu8dh9v97t" 
+            alt="Hero" 
+            className="w-full h-auto object-contain"
+          />
+        </motion.div>
       </div>
     </div>
   );

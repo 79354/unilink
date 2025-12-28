@@ -6,6 +6,7 @@ import MyPostWidget from "scenes/widgets/MyPostWidget";
 import PostsWidget from "scenes/widgets/PostsWidget";
 import EventsWidget from "scenes/widgets/Events";
 import ConnectionListWidget from "scenes/widgets/ConnectionListWidget";
+import { motion } from "framer-motion";
 
 const HomePage = () => {
   const { _id, picturePath } = useSelector((state) => state.user);
@@ -28,7 +29,9 @@ const HomePage = () => {
     };
 
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
   }, []);
 
@@ -36,69 +39,36 @@ const HomePage = () => {
     <div className="min-h-screen bg-grey-50 dark:bg-grey-900 flex flex-col">
       <Navbar />
       
-      {/* Fixed height container for the content below navbar */}
-      <div className="flex-1 w-full px-[6%] py-8 overflow-hidden">
-        <div className="flex flex-col lg:flex-row gap-6 justify-between h-full">
-          {/* Left Sidebar - Fixed, Scrollable if content overflows */}
-          <div className="w-full lg:w-[26%] lg:overflow-y-auto lg:h-[calc(100vh-120px)] space-y-6 scrollbar-thin scrollbar-thumb-grey-300 dark:scrollbar-thumb-grey-700 scrollbar-track-transparent">
-            <UserWidget userId={_id} picturePath={picturePath} />
-          </div>
+      <div className="max-w-7xl mx-auto w-full px-4 lg:px-[6%] py-6 flex flex-col lg:flex-row gap-6">
+        {/* Left Sidebar */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full lg:w-1/4 space-y-4"
+        >
+          <UserWidget userId={_id} picturePath={picturePath} />
+        </motion.div>
 
-          {/* Main Content - Fixed MyPostWidget + Scrollable Posts */}
-          <div className="w-full lg:w-[42%] lg:h-[calc(100vh-120px)] flex flex-col space-y-6">
-            {/* Fixed MyPostWidget */}
-            <div className="flex-shrink-0">
-              <MyPostWidget picturePath={picturePath} />
-            </div>
-            
-            {/* Scrollable Posts Only */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-grey-300 dark:scrollbar-thumb-grey-700 scrollbar-track-transparent">
-              <PostsWidget userId={_id} />
-            </div>
-          </div>
-
-          {/* Right Sidebar - Fixed, Scrollable if content overflows */}
-          <div className="hidden lg:block w-full lg:w-[26%] lg:overflow-y-auto lg:h-[calc(100vh-120px)] space-y-6 scrollbar-thin scrollbar-thumb-grey-300 dark:scrollbar-thumb-grey-700 scrollbar-track-transparent">
-            <EventsWidget />
-            <ConnectionListWidget userId={_id} />
-          </div>
+        {/* Main Content */}
+        <div className="w-full lg:w-1/2 flex flex-col gap-4">
+          <MyPostWidget picturePath={picturePath} />
+          <PostsWidget userId={_id} />
         </div>
 
-        {/* Chatbot Container */}
-        <div
-          ref={chatbotContainerRef}
-          className="fixed bottom-5 right-5 z-[999]"
-        ></div>
-      </div>
+        {/* Right Sidebar */}
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="hidden lg:block w-1/4 space-y-4"
+        >
+          <EventsWidget />
+          <ConnectionListWidget userId={_id} />
+        </motion.div>
 
-      {/* Custom Scrollbar Styles */}
-      <style jsx>{`
-        .scrollbar-thin::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .scrollbar-thin::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        
-        .scrollbar-thumb-grey-300::-webkit-scrollbar-thumb {
-          background-color: #d1d5db;
-          border-radius: 3px;
-        }
-        
-        .dark .scrollbar-thumb-grey-700::-webkit-scrollbar-thumb {
-          background-color: #374151;
-          border-radius: 3px;
-        }
-        
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-          background-color: #9ca3af;
-        }
-        
-        .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-          background-color: #4b5563;
-        }
-      `}</style>
+        {/* Chatbot Container */}
+        <div ref={chatbotContainerRef} className="fixed bottom-5 right-5 z-[999]"></div>
+      </div>
     </div>
   );
 };

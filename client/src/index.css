@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,21 +10,45 @@ body,
 .app {
   height: 100%;
   width: 100%;
-  font-family: 'Rubik', sans-serif;
+  font-family: 'Inter', 'Rubik', sans-serif;
   margin: 0;
   padding: 0;
+  @apply bg-grey-10 text-grey-700 transition-colors duration-300;
+}
+
+.dark body {
+  @apply bg-grey-900 text-grey-100;
+}
+
+@layer components {
+  .linkedin-card {
+    @apply bg-white dark:bg-grey-800 rounded-lg border border-grey-200 dark:border-grey-700 shadow-sm transition-all duration-200 hover:shadow-md;
+  }
+
+  .linkedin-button-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold py-2 px-4 rounded-full transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .linkedin-button-secondary {
+    @apply bg-transparent hover:bg-primary-50 dark:hover:bg-primary-900/20 text-primary-500 font-semibold py-2 px-4 rounded-full border border-primary-500 transition-all duration-200 active:scale-95;
+  }
+
+  .linkedin-input {
+    @apply w-full px-4 py-2 rounded-md border border-grey-300 dark:border-grey-600 bg-white dark:bg-grey-700 text-grey-800 dark:text-grey-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all duration-200;
+  }
 }
 
 @layer utilities {
   .glass-morphism {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    @apply bg-white/70 dark:bg-grey-800/70 backdrop-blur-md border border-white/20 dark:border-grey-700/50;
   }
 
-  .dark .glass-morphism {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
   }
 }

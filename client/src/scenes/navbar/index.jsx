@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { 
   Search, 
-  MessageCircle, 
+  MessageSquare, 
   Sun, 
   Moon, 
   Menu, 
@@ -10,16 +10,18 @@ import {
   Users, 
   ChevronDown,
   LogOut,
-  User
+  User,
+  Home,
+  Bell
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setMode, setLogout } from "state";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import FlexBetween from "components/FlexBetween";
 import SearchUsers from "components/SearchUsers";
 import ChatInterface from "components/ChatInterface";
-import NotificationBell from "components/NotificationBell"; // 🆕 NEW IMPORT
-import NotificationCenter from "components/NotificationCenter"; // 🆕 NEW IMPORT
+import NotificationBell from "components/NotificationBell";
+import NotificationCenter from "components/NotificationCenter";
 
 const Navbar = () => {
   const [isMobileMenuToggled, setIsMobileMenuToggled] = useState(false);
@@ -28,223 +30,128 @@ const Navbar = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useSelector((state) => state.user);
   const mode = useSelector((state) => state.mode);
   const fullName = user ? `${user.firstName} ${user.lastName}` : "";
 
-  const navigateToAlumni = () => {
-    navigate("./alumniPage");
-  };
-
-  const handleSearchClick = () => {
-    setIsSearchOpen(true);
-  };
-
-  const handleChatClick = () => {
-    setIsChatOpen(true);
-  };
+  const navItems = [
+    { icon: Home, label: "Home", path: "/home" },
+    { icon: Users, label: "My Network", path: "/home/alumniPage" },
+    { icon: MessageSquare, label: "Messaging", onClick: () => setIsChatOpen(true) },
+  ];
 
   return (
     <>
-      <nav className="sticky top-0 z-50 px-[6%] py-4 bg-white/80 dark:bg-grey-800/80 backdrop-blur-lg border-b border-grey-100 dark:border-grey-700 shadow-sm">
-        <FlexBetween>
-          {/* Logo and Search */}
-          <FlexBetween gap="gap-7">
+      <nav className="sticky top-0 z-50 w-full bg-white dark:bg-grey-800 border-b border-grey-200 dark:border-grey-700 shadow-sm transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-4 lg:px-[6%] h-14 flex items-center justify-between">
+          {/* Left: Logo and Search */}
+          <div className="flex items-center gap-2 flex-1">
             <h1
               onClick={() => navigate("/home")}
-              className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent cursor-pointer hover:scale-105 transition-transform duration-200"
+              className="text-2xl font-bold text-primary-500 cursor-pointer flex-shrink-0"
             >
-              Uni-Link
+              Uni<span className="bg-primary-500 text-white px-1 rounded-sm ml-0.5">L</span>
             </h1>
             
-            {/* Desktop Search */}
-            <button
-              onClick={handleSearchClick}
-              className="hidden lg:flex items-center bg-grey-50 dark:bg-grey-700 rounded-full px-5 py-2.5 w-80 hover:bg-grey-100 dark:hover:bg-grey-600 transition-all duration-200 group"
-            >
-              <span className="flex-1 text-left text-grey-400 dark:text-grey-500 group-hover:text-grey-500 dark:group-hover:text-grey-400">
-                Search users...
-              </span>
-              <Search className="w-5 h-5 text-grey-400 dark:text-grey-500 group-hover:text-primary-500 transition-colors duration-200" />
-            </button>
-          </FlexBetween>
-
-          {/* Desktop Icons */}
-          <div className="hidden lg:flex items-center gap-4">
-            {/* Mobile Search Button */}
-            <button
-              onClick={handleSearchClick}
-              className="lg:hidden p-2.5 rounded-full hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
-            >
-              <Search className="w-6 h-6 text-grey-700 dark:text-grey-100" />
-            </button>
-
-            <button
-              onClick={() => dispatch(setMode())}
-              className="p-2.5 rounded-full hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
-            >
-              {mode === "dark" ? (
-                <Sun className="w-6 h-6 text-grey-100" />
-              ) : (
-                <Moon className="w-6 h-6 text-grey-700" />
-              )}
-            </button>
-
-            {/* 🆕 NOTIFICATION BELL */}
-            <NotificationBell />
-
-            {/* Chat Button */}
-            <button 
-              onClick={handleChatClick}
-              className="p-2.5 rounded-full hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200 relative"
-            >
-              <MessageCircle className="w-6 h-6 text-grey-700 dark:text-grey-100" />
-            </button>
-
-            <button
-              onClick={navigateToAlumni}
-              className="p-2.5 rounded-full hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
-            >
-              <Users className="w-6 h-6 text-grey-700 dark:text-grey-100" />
-            </button>
-
-            {/* Profile Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-grey-50 dark:bg-grey-700 hover:bg-grey-100 dark:hover:bg-grey-600 transition-colors duration-200"
-              >
-                <span className="text-sm font-medium text-grey-700 dark:text-grey-100">
-                  {fullName}
-                </span>
-                <ChevronDown className={`w-4 h-4 text-grey-700 dark:text-grey-100 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-grey-800 rounded-lg shadow-lg border border-grey-100 dark:border-grey-700 py-2 animate-fade-in">
-                  <button
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      navigate(`/profile/${user._id}`);
-                    }}
-                    className="w-full px-4 py-2 text-left text-grey-700 dark:text-grey-100 hover:bg-grey-50 dark:hover:bg-grey-700 transition-colors duration-200 flex items-center gap-2"
-                  >
-                    <User className="w-4 h-4" />
-                    Profile
-                  </button>
-                  <button
-                    onClick={() => dispatch(setLogout())}
-                    className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-grey-50 dark:hover:bg-grey-700 transition-colors duration-200 flex items-center gap-2"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Log Out
-                  </button>
-                </div>
-              )}
+            <div className="relative max-w-xs w-full hidden md:block">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-grey-500" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search"
+                onClick={() => setIsSearchOpen(true)}
+                className="block w-full pl-10 pr-3 py-1.5 bg-primary-50 dark:bg-grey-700 border-none rounded-md text-sm placeholder-grey-500 focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-grey-600 transition-all duration-200 outline-none"
+              />
             </div>
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="lg:hidden flex items-center gap-2">
-            {/* Mobile Search Button */}
-            <button
-              onClick={handleSearchClick}
-              className="p-2 rounded-lg hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
-            >
-              <Search className="w-6 h-6 text-grey-700 dark:text-grey-100" />
-            </button>
-
-            {/* 🆕 MOBILE NOTIFICATION BELL */}
-            <NotificationBell />
-
-            <button
-              onClick={() => setIsMobileMenuToggled(!isMobileMenuToggled)}
-              className="p-2 rounded-lg hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
-            >
-              <Menu className="w-6 h-6 text-grey-700 dark:text-grey-100" />
-            </button>
-          </div>
-        </FlexBetween>
-      </nav>
-
-      {/* Search Modal */}
-      <SearchUsers 
-        isOpen={isSearchOpen} 
-        onClose={() => setIsSearchOpen(false)} 
-      />
-
-      {/* Chat Interface */}
-      <ChatInterface 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-      />
-
-      {/* 🆕 NOTIFICATION CENTER */}
-      <NotificationCenter />
-
-      {/* Mobile Menu */}
-      {isMobileMenuToggled && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
-            onClick={() => setIsMobileMenuToggled(false)}
-          />
-          <div className="fixed right-0 top-0 bottom-0 w-80 max-w-[85%] bg-white dark:bg-grey-800 z-50 shadow-2xl lg:hidden animate-slide-in">
-            <div className="flex justify-end p-4">
+          {/* Right: Navigation Items */}
+          <div className="flex items-center gap-1 md:gap-6">
+            {navItems.map((item) => (
               <button
-                onClick={() => setIsMobileMenuToggled(false)}
-                className="p-2 rounded-lg hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
+                key={item.label}
+                onClick={item.onClick || (() => navigate(item.path))}
+                className={`flex flex-col items-center justify-center px-2 py-1 transition-colors relative group ${
+                  location.pathname === item.path ? 'text-grey-900 dark:text-white' : 'text-grey-500 dark:text-grey-400 hover:text-grey-900 dark:hover:text-white'
+                }`}
               >
-                <X className="w-6 h-6 text-grey-700 dark:text-grey-100" />
-              </button>
-            </div>
-
-            <div className="flex flex-col items-center gap-6 px-6 py-8">
-              <button
-                onClick={() => dispatch(setMode())}
-                className="p-3 rounded-full hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
-              >
-                {mode === "dark" ? (
-                  <Sun className="w-6 h-6 text-grey-100" />
-                ) : (
-                  <Moon className="w-6 h-6 text-grey-700" />
+                <item.icon className="h-6 w-6" />
+                <span className="text-[10px] mt-0.5 hidden lg:block">{item.label}</span>
+                {location.pathname === item.path && (
+                  <div className="absolute bottom-[-14px] left-0 right-0 h-0.5 bg-grey-900 dark:bg-white" />
                 )}
               </button>
+            ))}
 
-              {/* Mobile Chat Button */}
-              <button 
-                onClick={() => {
-                  setIsMobileMenuToggled(false);
-                  handleChatClick();
-                }}
-                className="p-3 rounded-full hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
-              >
-                <MessageCircle className="w-6 h-6 text-grey-700 dark:text-grey-100" />
-              </button>
-
+            <div className="hidden md:flex items-center gap-4 pl-4 border-l border-grey-200 dark:border-grey-700 ml-2">
               <button
-                onClick={navigateToAlumni}
-                className="p-3 rounded-full hover:bg-grey-100 dark:hover:bg-grey-700 transition-colors duration-200"
+                onClick={() => dispatch(setMode())}
+                className="p-2 text-grey-500 hover:bg-grey-100 dark:hover:bg-grey-700 rounded-full transition-colors"
               >
-                <Users className="w-6 h-6 text-grey-700 dark:text-grey-100" />
+                {mode === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </button>
+              
+              <NotificationBell />
 
-              <div className="w-full pt-6 border-t border-grey-200 dark:border-grey-700">
-                <div className="text-center mb-4">
-                  <p className="font-medium text-grey-700 dark:text-grey-100">{fullName}</p>
-                </div>
+              <div className="relative">
                 <button
-                  onClick={() => dispatch(setLogout())}
-                  className="w-full py-3 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className="flex flex-col items-center text-grey-500 hover:text-grey-900 dark:hover:text-white"
                 >
-                  <LogOut className="w-5 h-5" />
-                  Log Out
+                  <div className="h-6 w-6 rounded-full bg-grey-200 overflow-hidden">
+                    <img src={user?.picturePath} alt="Me" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex items-center text-[10px] mt-0.5">
+                    Me <ChevronDown className="h-3 w-3 ml-0.5" />
+                  </div>
                 </button>
+
+                {isProfileOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-grey-800 rounded-lg shadow-xl border border-grey-200 dark:border-grey-700 py-4 z-50">
+                    <div className="px-4 pb-4 border-b border-grey-200 dark:border-grey-700 flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-full bg-grey-200 overflow-hidden">
+                        <img src={user?.picturePath} alt="Profile" className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm leading-tight">{fullName}</p>
+                        <p className="text-xs text-grey-500 mt-1">{user?.Year} student</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        navigate(`/profile/${user._id}`);
+                      }}
+                      className="w-full px-4 py-2 mt-2 text-left text-sm font-semibold text-primary-500 hover:bg-grey-50 dark:hover:bg-grey-700 transition-colors"
+                    >
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => dispatch(setLogout())}
+                      className="w-full px-4 py-2 text-left text-sm text-grey-500 hover:bg-grey-50 dark:hover:bg-grey-700 transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </>
-      )}
+
+          {/* Mobile Search/Menu Toggle */}
+          <div className="md:hidden flex items-center gap-2">
+             <button onClick={() => setIsSearchOpen(true)} className="p-2 text-grey-500"><Search className="h-6 w-6"/></button>
+             <button onClick={() => setIsMobileMenuToggled(!isMobileMenuToggled)} className="p-2 text-grey-500"><Menu className="h-6 w-6"/></button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Modals & Overlays */}
+      <SearchUsers isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      <ChatInterface isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      <NotificationCenter />
     </>
   );
 };
