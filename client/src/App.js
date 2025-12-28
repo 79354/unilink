@@ -24,7 +24,7 @@ function App() {
   }, [mode]);
 
   return (
-    <div className={`App min-h-screen ${mode === 'dark' ? 'bg-grey-900 text-grey-100' : 'bg-grey-10 text-grey-700'} transition-colors duration-300`}>
+    <div className={`App min-h-screen ${mode === 'dark' ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-700'} transition-colors duration-300`}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         {/* 🆕 WRAP WITH NOTIFICATION PROVIDER */}
         <NotificationProvider>
