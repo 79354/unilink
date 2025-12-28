@@ -36,7 +36,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-grey-50 dark:bg-grey-900 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 flex flex-col">
       <Navbar />
       
       <div className="max-w-7xl mx-auto w-full px-4 lg:px-[6%] py-6 flex flex-col lg:flex-row gap-6">
