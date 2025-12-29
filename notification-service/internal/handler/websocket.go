@@ -101,7 +101,7 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 	count, _ := h.notificationService.GetUnreadCount(userID)
 	h.websocketService.SendUnreadCount(userID, count)
 
-	h.logger.Info("✅ WebSocket connected", zap.String("userId", userID))
+	h.logger.Info("WebSocket connected", zap.String("userId", userID))
 
 	// Read pump - handle incoming messages
 	h.readPump(conn, userID)
@@ -131,5 +131,5 @@ func (h *WebSocketHandler) readPump(conn *websocket.Conn, userID string) {
 		}
 	}
 
-	h.logger.Info("❌ WebSocket disconnected", zap.String("userId", userID))
+	h.logger.Info("WebSocket disconnected", zap.String("userId", userID))
 }

@@ -1,135 +1,143 @@
-package handler
+package service
 
 import (
-	"net/http"
-	"strings"
+	"context"
+	"encoding/json"
+	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
-
-	"github.com/unilink/notification-service/internal/service"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Configure appropriately for production
-	},
+const (
+	onlineUsersKey = "notification:online"
+	socketPrefix   = "notification:socket:"
+	writeWait      = 10 * time.Second
+	pongWait       = 60 * time.Second
+	pingPeriod     = (pongWait * 9) / 10
+)
+
+type WebSocketService interface {
+	RegisterClient(userID string, conn *websocket.Conn)
+	UnregisterClient(userID string)
+	SendToUser(userID string, event string, payload interface{})
+	SendUnreadCount(userID string, count int64)
+	IsUserOnline(userID string) bool
 }
 
-type WebSocketHandler struct {
-	websocketService    service.WebSocketService
-	notificationService service.NotificationService
-	jwtSecret           string
-	logger              *zap.Logger
+type wsMessage struct {
+	Event   string      `json:"event"`
+	Payload interface{} `json:"payload"`
 }
 
-func NewWebSocketHandler(
-	websocketService service.WebSocketService,
-	notificationService service.NotificationService,
-	jwtSecret string,
+type webSocketService struct {
+	clients map[string]*websocket.Conn
+	mu      sync.RWMutex
+	redis   *redis.Client
+	logger  *zap.Logger
+}
+
+func NewWebSocketService(
+	redis *redis.Client,
 	logger *zap.Logger,
-) *WebSocketHandler {
-	return &WebSocketHandler{
-		websocketService:    websocketService,
-		notificationService: notificationService,
-		jwtSecret:           jwtSecret,
-		logger:              logger,
+) WebSocketService {
+	return &webSocketService{
+		clients: make(map[string]*websocket.Conn),
+		redis:   redis,
+		logger:  logger,
 	}
 }
 
-func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
-	// Extract JWT token from query parameter or header
-	tokenString := c.Query("token")
-	if tokenString == "" {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" {
-			parts := strings.Split(authHeader, " ")
-			if len(parts) == 2 && parts[0] == "Bearer" {
-				tokenString = parts[1]
-			}
-		}
-	}
+func (s *webSocketService) RegisterClient(userID string, conn *websocket.Conn) {
+	s.mu.Lock()
+	s.clients[userID] = conn
+	s.mu.Unlock()
 
-	if tokenString == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token required"})
+	ctx := context.Background()
+	s.redis.SAdd(ctx, onlineUsersKey, userID)
+	s.redis.Set(ctx, socketPrefix+userID, "connected", 24*time.Hour)
+
+	s.logger.Info("User connected", zap.String("userId", userID))
+
+	// Start ping/pong
+	go s.writePump(userID, conn)
+}
+
+func (s *webSocketService) UnregisterClient(userID string) {
+	s.mu.Lock()
+	if conn, exists := s.clients[userID]; exists {
+		conn.Close()
+		delete(s.clients, userID)
+	}
+	s.mu.Unlock()
+
+	ctx := context.Background()
+	s.redis.SRem(ctx, onlineUsersKey, userID)
+	s.redis.Del(ctx, socketPrefix+userID)
+
+	s.logger.Info("User disconnected", zap.String("userId", userID))
+}
+
+func (s *webSocketService) SendToUser(userID string, event string, payload interface{}) {
+	s.mu.RLock()
+	conn, exists := s.clients[userID]
+	s.mu.RUnlock()
+
+	if !exists {
+		s.logger.Info("User offline, notification stored in DB", zap.String("userId", userID))
 		return
 	}
 
-	// Validate JWT token
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, jwt.ErrSignatureInvalid
-		}
-		return []byte(h.jwtSecret), nil
-	})
-
-	if err != nil || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
-		return
+	msg := wsMessage{
+		Event:   event,
+		Payload: payload,
 	}
 
-	// Extract user ID
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
-		return
-	}
-
-	userID, ok := claims["id"].(string)
-	if !ok || userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
-		return
-	}
-
-	// Upgrade to WebSocket
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	data, err := json.Marshal(msg)
 	if err != nil {
-		h.logger.Error("Failed to upgrade to WebSocket", zap.Error(err))
+		s.logger.Error("Failed to marshal message", zap.Error(err))
 		return
 	}
 
-	// Register client
-	h.websocketService.RegisterClient(userID, conn)
-	defer h.websocketService.UnregisterClient(userID)
+	conn.SetWriteDeadline(time.Now().Add(writeWait))
+	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		s.logger.Error("Failed to send message", zap.Error(err))
+		s.UnregisterClient(userID)
+		return
+	}
 
-	// Send initial unread count
-	count, _ := h.notificationService.GetUnreadCount(userID)
-	h.websocketService.SendUnreadCount(userID, count)
-
-	h.logger.Info("✅ WebSocket connected", zap.String("userId", userID))
-
-	// Read pump - handle incoming messages
-	h.readPump(conn, userID)
+	s.logger.Info("Sent message",
+		zap.String("userId", userID),
+		zap.String("event", event),
+	)
 }
 
-func (h *WebSocketHandler) readPump(conn *websocket.Conn, userID string) {
-	defer conn.Close()
-
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		return nil
+func (s *webSocketService) SendUnreadCount(userID string, count int64) {
+	s.SendToUser(userID, "notification:unread-count", map[string]interface{}{
+		"count": count,
 	})
+}
+
+func (s *webSocketService) IsUserOnline(userID string) bool {
+	ctx := context.Background()
+	isMember, err := s.redis.SIsMember(ctx, onlineUsersKey, userID).Result()
+	return err == nil && isMember
+}
+
+func (s *webSocketService) writePump(userID string, conn *websocket.Conn) {
+	ticker := time.NewTicker(pingPeriod)
+	defer ticker.Stop()
 
 	for {
-		messageType, message, err := conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				h.logger.Error("WebSocket error", zap.Error(err))
+		select {
+		case <-ticker.C:
+			conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				s.UnregisterClient(userID)
+				return
 			}
-			break
-		}
-
-		if messageType == websocket.TextMessage {
-			h.logger.Debug("Received message", zap.String("userId", userID), zap.String("message", string(message)))
-			// Handle incoming messages if needed (e.g., mark as read, etc.)
 		}
 	}
-
-	h.logger.Info("❌ WebSocket disconnected", zap.String("userId", userID))
 }

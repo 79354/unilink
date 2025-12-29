@@ -57,7 +57,7 @@ func NewQueueService(
 }
 
 func (s *QueueService) Start(ctx context.Context) {
-	s.logger.Info("🚀 Starting notification queue processors...")
+	s.logger.Info("Starting notification queue processors...")
 
 	// Create consumer group if it doesn't exist
 	s.initConsumerGroup(ctx)
@@ -67,7 +67,7 @@ func (s *QueueService) Start(ctx context.Context) {
 		go s.processQueue(ctx, fmt.Sprintf("worker-%d", i))
 	}
 
-	s.logger.Info("✅ Queue processors started",
+	s.logger.Info("Queue processors started",
 		zap.Int("workers", s.config.NotificationQueueWorkers),
 	)
 }
@@ -104,7 +104,7 @@ func (s *QueueService) Enqueue(ctx context.Context, event *model.NotificationEve
 		return err
 	}
 
-	s.logger.Info("📥 Queued notification",
+	s.logger.Info("Queued notification",
 		zap.String("type", event.Type),
 		zap.String("userId", event.UserID),
 	)
@@ -167,7 +167,7 @@ func (s *QueueService) processMessage(ctx context.Context, message redis.XMessag
 		return
 	}
 
-	s.logger.Info("⚙️ Processing notification",
+	s.logger.Info("Processing notification",
 		zap.String("type", event.Type),
 		zap.String("userId", event.UserID),
 		zap.String("consumer", consumerName),
@@ -218,7 +218,7 @@ func (s *QueueService) processMessage(ctx context.Context, message redis.XMessag
 	count, _ := s.notificationService.GetUnreadCount(event.UserID)
 	s.websocketService.SendUnreadCount(event.UserID, count)
 
-	s.logger.Info("✅ Notification processed", zap.String("id", createdNotification.ID))
+	s.logger.Info("Notification processed", zap.String("id", createdNotification.ID))
 }
 
 func (s *QueueService) handleGroupedNotification(ctx context.Context, notificationID string, event *model.NotificationEvent) {
@@ -251,7 +251,7 @@ func (s *QueueService) handleGroupedNotification(ctx context.Context, notificati
 	s.notificationService.UpdateNotification(notification)
 	s.websocketService.SendToUser(event.UserID, "notification:updated", notification)
 
-	s.logger.Info("🔄 Grouped notification updated",
+	s.logger.Info("Grouped notification updated",
 		zap.String("id", notificationID),
 		zap.Int("count", currentCount+1),
 	)

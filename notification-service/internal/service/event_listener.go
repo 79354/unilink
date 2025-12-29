@@ -41,7 +41,7 @@ func (l *EventListener) Start(ctx context.Context) {
 	pubsub := l.redis.Subscribe(ctx, channels...)
 	defer pubsub.Close()
 
-	l.logger.Info("✅ Event listener started",
+	l.logger.Info("Event listener started",
 		zap.Int("channels", len(channels)),
 		zap.Strings("subscribed", channels),
 	)
@@ -69,20 +69,20 @@ func (l *EventListener) handleMessage(ctx context.Context, msg *redis.Message) {
 	// Parse event data
 	var eventData model.NotificationEvent
 	if err := json.Unmarshal([]byte(msg.Payload), &eventData); err != nil {
-		l.logger.Error("❌ Failed to parse event data", zap.Error(err))
+		l.logger.Error("Failed to parse event data", zap.Error(err))
 		return
 	}
 
 	// Validate required fields
 	if eventData.UserID == "" || eventData.ActorID == "" || eventData.ActorName == "" {
-		l.logger.Error("❌ Invalid notification data: missing required fields")
+		l.logger.Error("Invalid notification data: missing required fields")
 		return
 	}
 
 	// Determine notification type from channel
 	notificationType := l.config.GetChannelType(msg.Channel)
 	if notificationType == "" {
-		l.logger.Warn("⚠️ Unknown channel", zap.String("channel", msg.Channel))
+		l.logger.Warn("Unknown channel", zap.String("channel", msg.Channel))
 		return
 	}
 
@@ -95,7 +95,7 @@ func (l *EventListener) handleMessage(ctx context.Context, msg *redis.Message) {
 
 	// Queue for processing
 	if err := l.queueService.Enqueue(ctx, &eventData); err != nil {
-		l.logger.Error("❌ Failed to queue notification", zap.Error(err))
+		l.logger.Error("Failed to queue notification", zap.Error(err))
 	}
 }
 
