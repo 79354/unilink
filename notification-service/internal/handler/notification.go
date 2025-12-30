@@ -1,94 +1,132 @@
-package model
+package handler
 
 import (
-	"time"
+	"net/http"
+	"strconv"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
+	"github.com/unilink/notification-service/internal/middleware"
+	"github.com/unilink/notification-service/internal/service"
 )
 
-type NotificationType string
-
-const (
-	NotificationTypeLike          NotificationType = "like"
-	NotificationTypeMessage       NotificationType = "message"
-	NotificationTypeProfileView   NotificationType = "profile-view"
-	NotificationTypeFriendPost    NotificationType = "friend-post"
-	NotificationTypeFriendRequest NotificationType = "friend-request"
-)
-
-type Priority string
-
-const (
-	PriorityHigh   Priority = "HIGH"
-	PriorityMedium Priority = "MEDIUM"
-	PriorityLow    Priority = "LOW"
-)
-
-type Notification struct {
-	ID           primitive.ObjectID     `bson:"_id,omitempty" json:"id"`
-	UserID       string                 `bson:"userId" json:"userId"`
-	Type         NotificationType       `bson:"type" json:"type"`
-	ActorID      string                 `bson:"actorId" json:"actorId"`
-	ActorName    string                 `bson:"actorName" json:"actorName"`
-	ActorPicture string                 `bson:"actorPicture" json:"actorPicture"`
-	RelatedID    string                 `bson:"relatedId,omitempty" json:"relatedId,omitempty"`
-	Message      string                 `bson:"message" json:"message"`
-	Read         bool                   `bson:"read" json:"read"`
-	Priority     Priority               `bson:"priority" json:"priority"`
-	Metadata     map[string]interface{} `bson:"metadata" json:"metadata"`
-	ExpiresAt    *time.Time             `bson:"expiresAt,omitempty" json:"expiresAt,omitempty"`
-	CreatedAt    time.Time              `bson:"createdAt" json:"createdAt"`
-	UpdatedAt    time.Time              `bson:"updatedAt" json:"updatedAt"`
+type NotificationHandler struct {
+	notificationService service.NotificationService
+	logger              *zap.Logger
 }
 
-func (n *Notification) IsGrouped() bool {
-	if n.Metadata == nil {
-		return false
-	}
-	count, ok := n.Metadata["groupCount"]
-	if !ok {
-		return false
-	}
-	countFloat, ok := count.(float64)
-	return ok && countFloat > 1
-}
-
-func (n *Notification) GetGroupCount() int {
-	if n.Metadata == nil {
-		return 1
-	}
-	count, ok := n.Metadata["groupCount"]
-	if !ok {
-		return 1
-	}
-	switch v := count.(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case int32:
-		return int(v)
-	case int64:
-		return int(v)
-	default:
-		return 1
+func NewNotificationHandler(
+	notificationService service.NotificationService,
+	logger *zap.Logger,
+) *NotificationHandler {
+	return &NotificationHandler{
+		notificationService: notificationService,
+		logger:              logger,
 	}
 }
 
-type NotificationEvent struct {
-	UserID       string                 `json:"userId"`
-	Type         string                 `json:"type"`
-	ActorID      string                 `json:"actorId"`
-	ActorName    string                 `json:"actorName"`
-	ActorPicture string                 `json:"actorPicture"`
-	RelatedID    string                 `json:"relatedId"`
-	Message      string                 `json:"message"`
-	Priority     string                 `json:"priority"`
-	Metadata     map[string]interface{} `json:"metadata"`
+func (h *NotificationHandler) GetNotifications(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "0"))
+	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))
+	unreadOnlyStr := c.Query("unreadOnly")
+	unreadOnly := unreadOnlyStr == "true"
+
+	notifications, total, err := h.notificationService.GetNotifications(userID, size, page*size, unreadOnly)
+	if err != nil {
+		h.logger.Error("Failed to get notifications", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch notifications"})
+		return
+	}
+
+	totalPages := (int(total) + size - 1) / size
+
+	c.JSON(http.StatusOK, gin.H{
+		"notifications":      notifications,
+		"totalPages":         totalPages,
+		"currentPage":        page,
+		"totalNotifications": total,
+	})
 }
 
-type NotificationStatistics struct {
-	Type   string `bson:"_id" json:"type"`
-	Count  int64  `bson:"count" json:"count"`
-	Unread int64  `bson:"unread" json:"unread"`
+func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	count, err := h.notificationService.GetUnreadCount(userID)
+	if err != nil {
+		h.logger.Error("Failed to get unread count", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch count"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
+}
+
+func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	notificationID := c.Param("id")
+
+	notification, err := h.notificationService.MarkAsRead(userID, notificationID)
+	if err != nil {
+		h.logger.Error("Failed to mark as read", zap.Error(err))
+		c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Notification marked as read",
+		"notification": notification,
+	})
+}
+
+func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	if err := h.notificationService.MarkAllAsRead(userID); err != nil {
+		h.logger.Error("Failed to mark all as read", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update notifications"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "All notifications marked as read"})
+}
+
+func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	notificationID := c.Param("id")
+
+	if err := h.notificationService.DeleteNotification(userID, notificationID); err != nil {
+		h.logger.Error("Failed to delete notification", zap.Error(err))
+		c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Notification deleted"})
+}
+
+func (h *NotificationHandler) DeleteAllNotifications(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	if err := h.notificationService.DeleteAllNotifications(userID); err != nil {
+		h.logger.Error("Failed to delete all notifications", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete notifications"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "All notifications deleted"})
+}
+
+func (h *NotificationHandler) GetStatistics(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	stats, err := h.notificationService.GetStatistics(userID)
+	if err != nil {
+		h.logger.Error("Failed to get statistics", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch statistics"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"statistics": stats})
 }
