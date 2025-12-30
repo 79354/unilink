@@ -17,7 +17,7 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Configure appropriately for production
+		return true
 	},
 }
 
@@ -43,7 +43,6 @@ func NewWebSocketHandler(
 }
 
 func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
-	// Extract JWT token from query parameter or header
 	tokenString := c.Query("token")
 	if tokenString == "" {
 		authHeader := c.GetHeader("Authorization")
@@ -60,7 +59,6 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// Validate JWT token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
@@ -73,7 +71,6 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// Extract user ID
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
@@ -86,24 +83,20 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// Upgrade to WebSocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		h.logger.Error("Failed to upgrade to WebSocket", zap.Error(err))
 		return
 	}
 
-	// Register client
 	h.websocketService.RegisterClient(userID, conn)
 	defer h.websocketService.UnregisterClient(userID)
 
-	// Send initial unread count
 	count, _ := h.notificationService.GetUnreadCount(userID)
 	h.websocketService.SendUnreadCount(userID, count)
 
 	h.logger.Info("WebSocket connected", zap.String("userId", userID))
 
-	// Read pump - handle incoming messages
 	h.readPump(conn, userID)
 }
 
@@ -127,7 +120,6 @@ func (h *WebSocketHandler) readPump(conn *websocket.Conn, userID string) {
 
 		if messageType == websocket.TextMessage {
 			h.logger.Debug("Received message", zap.String("userId", userID), zap.String("message", string(message)))
-			// Handle incoming messages if needed (e.g., mark as read, etc.)
 		}
 	}
 

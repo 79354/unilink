@@ -39,10 +39,7 @@ type webSocketService struct {
 	logger  *zap.Logger
 }
 
-func NewWebSocketService(
-	redis *redis.Client,
-	logger *zap.Logger,
-) WebSocketService {
+func NewWebSocketService(redis *redis.Client, logger *zap.Logger) WebSocketService {
 	return &webSocketService{
 		clients: make(map[string]*websocket.Conn),
 		redis:   redis,
@@ -61,7 +58,6 @@ func (s *webSocketService) RegisterClient(userID string, conn *websocket.Conn) {
 
 	s.logger.Info("User connected", zap.String("userId", userID))
 
-	// Start ping/pong
 	go s.writePump(userID, conn)
 }
 

@@ -36,7 +36,6 @@ func NewEventListener(
 func (l *EventListener) Start(ctx context.Context) {
 	l.logger.Info("🎧 Starting Redis Pub/Sub event listener...")
 
-	// Subscribe to all notification channels
 	channels := l.config.GetAllChannels()
 	pubsub := l.redis.Subscribe(ctx, channels...)
 	defer pubsub.Close()
@@ -46,7 +45,6 @@ func (l *EventListener) Start(ctx context.Context) {
 		zap.Strings("subscribed", channels),
 	)
 
-	// Listen for messages
 	ch := pubsub.Channel()
 	for {
 		select {
@@ -66,20 +64,17 @@ func (l *EventListener) handleMessage(ctx context.Context, msg *redis.Message) {
 		zap.String("payload", msg.Payload),
 	)
 
-	// Parse event data
 	var eventData model.NotificationEvent
 	if err := json.Unmarshal([]byte(msg.Payload), &eventData); err != nil {
 		l.logger.Error("Failed to parse event data", zap.Error(err))
 		return
 	}
 
-	// Validate required fields
 	if eventData.UserID == "" || eventData.ActorID == "" || eventData.ActorName == "" {
 		l.logger.Error("Invalid notification data: missing required fields")
 		return
 	}
 
-	// Determine notification type from channel
 	notificationType := l.config.GetChannelType(msg.Channel)
 	if notificationType == "" {
 		l.logger.Warn("Unknown channel", zap.String("channel", msg.Channel))
@@ -88,12 +83,10 @@ func (l *EventListener) handleMessage(ctx context.Context, msg *redis.Message) {
 
 	eventData.Type = notificationType
 
-	// Generate message if not provided
 	if eventData.Message == "" {
 		eventData.Message = l.generateMessage(&eventData)
 	}
 
-	// Queue for processing
 	if err := l.queueService.Enqueue(ctx, &eventData); err != nil {
 		l.logger.Error("Failed to queue notification", zap.Error(err))
 	}

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 
@@ -9,32 +8,23 @@ import (
 )
 
 type Config struct {
-	// Server
 	ServerPort int
 	ServerMode string
 
-	// Database
-	DBHost     string
-	DBPort     int
-	DBUser     string
-	DBPassword string
-	DBName     string
+	MongoDBURI      string
+	MongoDBDatabase string
 
-	// Redis
 	RedisHost     string
 	RedisPort     int
 	RedisPassword string
 
-	// JWT
 	JWTSecret string
 
-	// CORS
 	CORSAllowedOrigins string
 
-	// Notification settings
-	NotificationQueueWorkers        int
-	NotificationGroupingWindowSecs  int
-	NotificationDefaultExpiryDays   int
+	NotificationQueueWorkers       int
+	NotificationGroupingWindowSecs int
+	NotificationDefaultExpiryDays  int
 }
 
 var notificationChannels = map[string]string{
@@ -46,18 +36,14 @@ var notificationChannels = map[string]string{
 }
 
 func Load() (*Config, error) {
-	// Load .env file if exists
 	godotenv.Load()
 
 	cfg := &Config{
 		ServerPort: getEnvAsInt("SERVER_PORT", 8080),
 		ServerMode: getEnv("SERVER_MODE", "development"),
 
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnvAsInt("DB_PORT", 5432),
-		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", ""),
-		DBName:     getEnv("DB_NAME", "notifications"),
+		MongoDBURI:      getEnv("MONGODB_URI", "mongodb://localhost:27017"),
+		MongoDBDatabase: getEnv("MONGODB_DATABASE", "notifications"),
 
 		RedisHost:     getEnv("REDIS_HOST", "localhost"),
 		RedisPort:     getEnvAsInt("REDIS_PORT", 6379),
@@ -101,7 +87,6 @@ func getEnvAsInt(key string, defaultValue int) int {
 	}
 	value, err := strconv.Atoi(valueStr)
 	if err != nil {
-		fmt.Printf("Warning: Invalid value for %s, using default %d\n", key, defaultValue)
 		return defaultValue
 	}
 	return value

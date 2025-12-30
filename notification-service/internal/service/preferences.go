@@ -1,10 +1,15 @@
 package service
 
 import (
+	"context"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 
 	"github.com/unilink/notification-service/internal/model"
-	"github.com/unilink/notification-service/internal/repository"
 )
 
 type PreferencesService interface {
@@ -15,69 +20,86 @@ type PreferencesService interface {
 }
 
 type preferencesService struct {
-	repo   repository.PreferencesRepository
-	logger *zap.Logger
+	collection *mongo.Collection
+	logger     *zap.Logger
 }
 
-func NewPreferencesService(
-	repo repository.PreferencesRepository,
-	logger *zap.Logger,
-) PreferencesService {
+func NewPreferencesService(db *mongo.Database, logger *zap.Logger) PreferencesService {
 	return &preferencesService{
-		repo:   repo,
-		logger: logger,
+		collection: db.Collection("user_preferences"),
+		logger:     logger,
 	}
 }
 
 func (s *preferencesService) GetOrCreate(userID string) (*model.UserPreferences, error) {
-	preferences, err := s.repo.FindByUserID(userID)
+	ctx := context.Background()
+
+	var preferences model.UserPreferences
+	err := s.collection.FindOne(ctx, bson.M{"userId": userID}).Decode(&preferences)
+
+	if err == mongo.ErrNoDocuments {
+		s.logger.Info("Creating default preferences", zap.String("userId", userID))
+		preferences := model.NewDefaultPreferences(userID)
+
+		_, err := s.collection.InsertOne(ctx, preferences)
+		if err != nil {
+			return nil, err
+		}
+
+		return preferences, nil
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	if preferences == nil {
-		s.logger.Info("Creating default preferences", zap.String("userId", userID))
-		preferences = model.NewDefaultPreferences(userID)
-		if err := s.repo.Create(preferences); err != nil {
-			return nil, err
-		}
-	}
-
-	return preferences, nil
+	return &preferences, nil
 }
 
 func (s *preferencesService) UpdatePreferences(userID string, updates *model.UserPreferences) (*model.UserPreferences, error) {
+	ctx := context.Background()
+
 	existing, err := s.GetOrCreate(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update fields if provided
 	if updates.Notifications != nil && len(updates.Notifications) > 0 {
 		existing.Notifications = updates.Notifications
 	}
 
-	if updates.EmailNotifications != existing.EmailNotifications {
-		existing.EmailNotifications = updates.EmailNotifications
-	}
+	existing.EmailNotifications = updates.EmailNotifications
+	existing.PushNotifications = updates.PushNotifications
 
-	if updates.PushNotifications != existing.PushNotifications {
-		existing.PushNotifications = updates.PushNotifications
-	}
-
-	if updates.QuietHours.Enabled != existing.QuietHours.Enabled ||
-		updates.QuietHours.Start != existing.QuietHours.Start ||
-		updates.QuietHours.End != existing.QuietHours.End {
+	if updates.QuietHours.Start != "" {
 		existing.QuietHours = updates.QuietHours
 	}
 
-	if err := s.repo.Update(existing); err != nil {
-		return nil, err
+	existing.UpdatedAt = time.Now()
+
+	filter := bson.M{"userId": userID}
+	update := bson.M{
+		"$set": bson.M{
+			"notifications":      existing.Notifications,
+			"emailNotifications": existing.EmailNotifications,
+			"pushNotifications":  existing.PushNotifications,
+			"quietHours":         existing.QuietHours,
+			"updatedAt":          existing.UpdatedAt,
+		},
 	}
 
-	s.logger.Info("Preferences updated", zap.String("userId", userID))
+	err = s.collection.FindOneAndUpdate(
+		ctx,
+		filter,
+		update,
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
+	).Decode(existing)
 
-	return existing, nil
+	if err == nil {
+		s.logger.Info("Preferences updated", zap.String("userId", userID))
+	}
+
+	return existing, err
 }
 
 func (s *preferencesService) IsNotificationEnabled(userID, notificationType string) (bool, error) {

@@ -1,62 +1,74 @@
-package handler
+package model
 
 import (
-	"net/http"
+	"time"
 
-	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
-
-	"github.com/unilink/notification-service/internal/middleware"
-	"github.com/unilink/notification-service/internal/model"
-	"github.com/unilink/notification-service/internal/service"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type PreferencesHandler struct {
-	preferencesService service.PreferencesService
-	logger             *zap.Logger
+type QuietHours struct {
+	Enabled bool   `bson:"enabled" json:"enabled"`
+	Start   string `bson:"start" json:"start"`
+	End     string `bson:"end" json:"end"`
 }
 
-func NewPreferencesHandler(
-	preferencesService service.PreferencesService,
-	logger *zap.Logger,
-) *PreferencesHandler {
-	return &PreferencesHandler{
-		preferencesService: preferencesService,
-		logger:             logger,
-	}
+type UserPreferences struct {
+	ID                 primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID             string             `bson:"userId" json:"userId"`
+	Notifications      map[string]bool    `bson:"notifications" json:"notifications"`
+	EmailNotifications bool               `bson:"emailNotifications" json:"emailNotifications"`
+	PushNotifications  bool               `bson:"pushNotifications" json:"pushNotifications"`
+	QuietHours         QuietHours         `bson:"quietHours" json:"quietHours"`
+	CreatedAt          time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt          time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
-func (h *PreferencesHandler) GetPreferences(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-
-	preferences, err := h.preferencesService.GetOrCreate(userID)
-	if err != nil {
-		h.logger.Error("Failed to get preferences", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch preferences"})
-		return
+func (p *UserPreferences) IsEnabled(notificationType string) bool {
+	if p.Notifications == nil {
+		return true
 	}
-
-	c.JSON(http.StatusOK, preferences)
+	enabled, exists := p.Notifications[notificationType]
+	if !exists {
+		return true
+	}
+	return enabled
 }
 
-func (h *PreferencesHandler) UpdatePreferences(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-
-	var updates model.UserPreferences
-	if err := c.ShouldBindJSON(&updates); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
+func (p *UserPreferences) IsInQuietHours() bool {
+	if !p.QuietHours.Enabled {
+		return false
 	}
 
-	preferences, err := h.preferencesService.UpdatePreferences(userID, &updates)
-	if err != nil {
-		h.logger.Error("Failed to update preferences", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update preferences"})
-		return
-	}
+	now := time.Now()
+	currentTime := now.Format("15:04")
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":     "Preferences updated",
-		"preferences": preferences,
-	})
+	start := p.QuietHours.Start
+	end := p.QuietHours.End
+
+	if start > end {
+		return currentTime >= start || currentTime < end
+	}
+	return currentTime >= start && currentTime < end
+}
+
+func NewDefaultPreferences(userID string) *UserPreferences {
+	return &UserPreferences{
+		UserID: userID,
+		Notifications: map[string]bool{
+			"like":           true,
+			"message":        true,
+			"profile-view":   true,
+			"friend-post":    true,
+			"friend-request": true,
+		},
+		EmailNotifications: true,
+		PushNotifications:  true,
+		QuietHours: QuietHours{
+			Enabled: false,
+			Start:   "22:00",
+			End:     "08:00",
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
 }

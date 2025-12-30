@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 
 	"github.com/unilink/notification-service/internal/config"
@@ -59,10 +59,8 @@ func NewQueueService(
 func (s *QueueService) Start(ctx context.Context) {
 	s.logger.Info("Starting notification queue processors...")
 
-	// Create consumer group if it doesn't exist
 	s.initConsumerGroup(ctx)
 
-	// Start multiple workers
 	for i := 0; i < s.config.NotificationQueueWorkers; i++ {
 		go s.processQueue(ctx, fmt.Sprintf("worker-%d", i))
 	}
@@ -80,19 +78,16 @@ func (s *QueueService) initConsumerGroup(ctx context.Context) {
 }
 
 func (s *QueueService) Enqueue(ctx context.Context, event *model.NotificationEvent) error {
-	// Apply delay based on priority
 	priorityConfig := priorityMap[event.Type]
 	if priorityConfig.Delay > 0 {
 		time.Sleep(priorityConfig.Delay)
 	}
 
-	// Marshal event to JSON
 	data, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
-	// Add to Redis Stream
 	_, err = s.redis.XAdd(ctx, &redis.XAddArgs{
 		Stream: queueStreamKey,
 		Values: map[string]interface{}{
@@ -125,7 +120,6 @@ func (s *QueueService) processQueue(ctx context.Context, consumerName string) {
 }
 
 func (s *QueueService) readAndProcess(ctx context.Context, consumerName string) {
-	// Read from stream
 	streams, err := s.redis.XReadGroup(ctx, &redis.XReadGroupArgs{
 		Group:    consumerGroup,
 		Consumer: consumerName,
@@ -150,11 +144,9 @@ func (s *QueueService) readAndProcess(ctx context.Context, consumerName string) 
 
 func (s *QueueService) processMessage(ctx context.Context, message redis.XMessage, consumerName string) {
 	defer func() {
-		// Acknowledge message
 		s.redis.XAck(ctx, queueStreamKey, consumerGroup, message.ID)
 	}()
 
-	// Parse event data
 	dataStr, ok := message.Values["data"].(string)
 	if !ok {
 		s.logger.Error("Invalid message format")
@@ -173,7 +165,6 @@ func (s *QueueService) processMessage(ctx context.Context, message redis.XMessag
 		zap.String("consumer", consumerName),
 	)
 
-	// Check for deduplication (grouping)
 	if event.Type == "like" || event.Type == "profile-view" {
 		if existingID := s.checkDeduplication(ctx, &event); existingID != "" {
 			s.handleGroupedNotification(ctx, existingID, &event)
@@ -181,21 +172,21 @@ func (s *QueueService) processMessage(ctx context.Context, message redis.XMessag
 		}
 	}
 
-	// Create new notification
 	notification := &model.Notification{
 		UserID:       event.UserID,
 		Type:         model.NotificationType(event.Type),
 		ActorID:      event.ActorID,
 		ActorName:    event.ActorName,
 		ActorPicture: event.ActorPicture,
-		RelatedID:    &event.RelatedID,
+		RelatedID:    event.RelatedID,
 		Message:      event.Message,
 		Priority:     s.getPriority(event.Priority),
 		Metadata:     event.Metadata,
+		Read:         false,
 	}
 
 	if notification.Metadata == nil {
-		notification.Metadata = make(model.Metadata)
+		notification.Metadata = make(map[string]interface{})
 	}
 	notification.Metadata["groupCount"] = 1
 
@@ -205,20 +196,17 @@ func (s *QueueService) processMessage(ctx context.Context, message redis.XMessag
 		return
 	}
 
-	// Set deduplication key
 	if event.Type == "like" || event.Type == "profile-view" {
 		dedupKey := s.getDeduplicationKey(&event)
-		s.redis.Set(ctx, dedupKey, createdNotification.ID, time.Duration(s.config.NotificationGroupingWindowSecs)*time.Second)
+		s.redis.Set(ctx, dedupKey, createdNotification.ID.Hex(), time.Duration(s.config.NotificationGroupingWindowSecs)*time.Second)
 	}
 
-	// Send via WebSocket
 	s.websocketService.SendToUser(event.UserID, "notification:new", createdNotification)
 
-	// Send updated unread count
 	count, _ := s.notificationService.GetUnreadCount(event.UserID)
 	s.websocketService.SendUnreadCount(event.UserID, count)
 
-	s.logger.Info("Notification processed", zap.String("id", createdNotification.ID))
+	s.logger.Info("Notification processed", zap.String("id", createdNotification.ID.Hex()))
 }
 
 func (s *QueueService) handleGroupedNotification(ctx context.Context, notificationID string, event *model.NotificationEvent) {
@@ -230,7 +218,6 @@ func (s *QueueService) handleGroupedNotification(ctx context.Context, notificati
 	currentCount := notification.GetGroupCount()
 	notification.Metadata["groupCount"] = float64(currentCount + 1)
 
-	// Update message
 	if currentCount == 1 {
 		notification.Message = fmt.Sprintf(
 			"%s and 1 other %s your %s",
