@@ -1,15 +1,16 @@
 from datetime import datetime
-from typing import List, Optional, Dict
+from typing import Optional
 from bson import ObjectId
 from pydantic import BaseModel, Field
 from models.user import PyObjectId
 
-class ConversationModel(BaseModel):
+class MessageModel(BaseModel):
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
-    participants: List[PyObjectId]
-    lastMessage: Optional[PyObjectId] = None
-    lastMessageAt: datetime = Field(default_factory=datetime.utcnow)
-    unreadCount: Dict[str, int] = {}
+    conversationId: PyObjectId
+    sender: PyObjectId
+    content: str
+    read: bool = False
+    readAt: Optional[datetime] = None
     createdAt: datetime = Field(default_factory=datetime.utcnow)
     updatedAt: datetime = Field(default_factory=datetime.utcnow)
 
@@ -19,9 +20,9 @@ class ConversationModel(BaseModel):
         json_encoders = {ObjectId: str}
         json_schema_extra = {
             "example": {
-                "participants": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"],
-                "lastMessage": "507f1f77bcf86cd799439013",
-                "lastMessageAt": "2024-01-01T00:00:00Z",
-                "unreadCount": {"507f1f77bcf86cd799439011": 0, "507f1f77bcf86cd799439012": 5}
+                "conversationId": "507f1f77bcf86cd799439011",
+                "sender": "507f1f77bcf86cd799439012",
+                "content": "Hello, how are you?",
+                "read": False
             }
         }

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 
 	"github.com/unilink/notification-service/internal/config"
@@ -172,13 +171,18 @@ func (s *QueueService) processMessage(ctx context.Context, message redis.XMessag
 		}
 	}
 
+	var relatedID *string
+	if event.RelatedID != "" {
+		relatedID = &event.RelatedID
+	}
+
 	notification := &model.Notification{
 		UserID:       event.UserID,
 		Type:         model.NotificationType(event.Type),
 		ActorID:      event.ActorID,
 		ActorName:    event.ActorName,
 		ActorPicture: event.ActorPicture,
-		RelatedID:    event.RelatedID,
+		RelatedID:    relatedID,
 		Message:      event.Message,
 		Priority:     s.getPriority(event.Priority),
 		Metadata:     event.Metadata,

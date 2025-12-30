@@ -4,6 +4,8 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type NotificationType string
@@ -43,20 +45,20 @@ func (m *Metadata) Scan(value interface{}) error {
 }
 
 type Notification struct {
-	ID           string           `db:"id" json:"id"`
-	UserID       string           `db:"user_id" json:"userId"`
-	Type         NotificationType `db:"type" json:"type"`
-	ActorID      string           `db:"actor_id" json:"actorId"`
-	ActorName    string           `db:"actor_name" json:"actorName"`
-	ActorPicture string           `db:"actor_picture" json:"actorPicture"`
-	RelatedID    *string          `db:"related_id" json:"relatedId,omitempty"`
-	Message      string           `db:"message" json:"message"`
-	Read         bool             `db:"read" json:"read"`
-	Priority     Priority         `db:"priority" json:"priority"`
-	Metadata     Metadata         `db:"metadata" json:"metadata"`
-	ExpiresAt    *time.Time       `db:"expires_at" json:"expiresAt,omitempty"`
-	CreatedAt    time.Time        `db:"created_at" json:"createdAt"`
-	UpdatedAt    time.Time        `db:"updated_at" json:"updatedAt"`
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID       string             `bson:"userId" json:"userId"`
+	Type         NotificationType   `bson:"type" json:"type"`
+	ActorID      string             `bson:"actorId" json:"actorId"`
+	ActorName    string             `bson:"actorName" json:"actorName"`
+	ActorPicture string             `bson:"actorPicture" json:"actorPicture"`
+	RelatedID    *string            `bson:"relatedId,omitempty" json:"relatedId,omitempty"`
+	Message      string             `bson:"message" json:"message"`
+	Read         bool               `bson:"read" json:"read"`
+	Priority     Priority           `bson:"priority" json:"priority"`
+	Metadata     Metadata           `bson:"metadata" json:"metadata"`
+	ExpiresAt    *time.Time         `bson:"expiresAt,omitempty" json:"expiresAt,omitempty"`
+	CreatedAt    time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
 func (n *Notification) IsGrouped() bool {
@@ -102,7 +104,7 @@ type NotificationEvent struct {
 }
 
 type NotificationStatistics struct {
-	Type   string `db:"type" json:"type"`
-	Count  int64  `db:"count" json:"count"`
-	Unread int64  `db:"unread" json:"unread"`
+	Type   string `bson:"_id" json:"type"`
+	Count  int64  `bson:"count" json:"count"`
+	Unread int64  `bson:"unread" json:"unread"`
 }
